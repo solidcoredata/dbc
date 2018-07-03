@@ -38,17 +38,19 @@ const (
 )
 
 type StoreTable struct {
-	Name       string // Table name.
-	Alias      string // Suggested alias for queries.
-	Comment    string
-	Tag        []string
-	RoleAuthn  map[string]Authn
-	Column     []*StoreColumn
-	Read       []Param
-	DenyRead   *Param
-	DenyInsert *Param
-	DenyUpdate *Param
-	DenyDelete *Param
+	Name      string // Table name.
+	Alias     string // Suggested alias for queries.
+	Comment   string
+	Tag       []string
+	RoleAuthn map[string]Authn
+	Column    []*StoreColumn
+	Read      []Param
+
+	// Per-named interface, per row checks to deny an operation.
+	DenyRead   map[string]Param
+	DenyInsert map[string]Param
+	DenyUpdate map[string]Param
+	DenyDelete map[string]Param
 }
 
 type Input struct {
@@ -68,10 +70,9 @@ type StoreColumn struct {
 	RoleAuthn map[string]Authn
 	Display   string // Suggested default name to display for the column.
 
-	// Per-row checks that are appended on to any query that it references.
-	DenyRead   *Param
-	DenyUpdate *Param
-	DenyDelete *Param
+	// Per-named interface, per column, per row checks to deny an operation.
+	DenyRead   map[string]Param
+	DenyUpdate map[string]Param
 
 	// Properties used for normal tables.
 	Key          bool
@@ -165,5 +166,6 @@ type RowBuffer struct {
 
 type ValueBuffer struct {
 	Schema *ColumnSchema
+	Allow  Authn       // Some columns may be read only (computed) or be denied read or update per row.
 	Value  interface{} // Value is nil if NULL.
 }
