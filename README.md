@@ -85,10 +85,11 @@ func doit(part float64) table {
 			t3.ID, t3.Table2,
 	}
 
+	// Update table with join to other tables.
 	from
 		Table1 t1
-		join Table t2 on t1.ID = t2.ID
-		join ct3(t1.Name) t3 on t3.Table2 = t2.ID
+		join Table t2 and t1.ID = t2.ID
+		join ct3(t1.Name) t3 and t3.Table2 = t2.ID
 	and
 		t2.Part = part
 		#where1
@@ -99,10 +100,25 @@ func doit(part float64) table {
 	update t1
 		Name = 'Hello',
 	
+	// Insert row by value into table.
 	from
 		Table1 t1
-		join Table t2 on t1.ID = t2.ID
-		join ct3(t1.Name) t3 on t3.Table2 = t2.ID
+	insert t1
+		Name = 'Hello',
+	
+	// Insert into table, output inserted row (OUTPUT or RETURNING).
+	from
+		Table1 t1
+	insert t1
+		Name = 'Hello',
+	select
+		t1.ID,
+	
+	// Insert from other existing data which is joined to inserting table.
+	from
+		Table1 t1
+		join Table t2 and t1.ID = t2.ID
+		join ct3(t1.Name) t3 and t3.Table2 = t2.ID
 	and
 		t2.Part = part
 		#where1
@@ -110,14 +126,24 @@ func doit(part float64) table {
 			t3.ID = 0
 			t1.Name = 'Nothing'
 		)
-	insert t2
+	insert t1
 		Name = 'Hello',
 	
+	// Insert from other existing data which is not joined to inserting table.
+	from
+		Table t2
+		join ct3(t1.Name) t3 and t3.Table2 = t2.ID
+	from
+		Table1 t1
+	and
+		t2.ID = 4
+	insert t1
+		Name = 'Hello',
 	
 	from
 		Table1 t1
-		join Table t2 on t1.ID = t2.ID
-		join ct3(t1.Name) t3 on t3.Table2 = t2.ID
+		join Table t2 and t1.ID = t2.ID
+		join ct3(t1.Name) t3 and t3.Table2 = t2.ID
 	and
 		t2.Part = part
 		#where1
@@ -127,7 +153,7 @@ func doit(part float64) table {
 		)
 	select
 		t1.Name, NamePart = t2.Part,
-	order by
+	order
 		t1.Name asc
 	limit 50 offset 10
 	
@@ -143,6 +169,13 @@ create payment table {
 	ID int64 serial key
 	account fk<account.ID> null
 	amount decimal default 0
+}
+
+mixin (pay payment) IsPositive(IsPositive bool) {
+	if IsPositive {
+		and
+			pay.amount > 0
+	}
 }
 ```
 
@@ -163,6 +196,11 @@ deploy it themselves or package it along with their application.
 Both the developer tools and the runtime server will be written in Go. However
 there is not restriction on what languages or runtimes they can be used with.
 For ORM uses, code generators are pluggable and simple to implement.
+
+### Keywords
+
+select, insert, update, and, or, order, limit, offset,
+func, create, table, index
 
 ### Security
 
