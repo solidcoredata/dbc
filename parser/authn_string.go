@@ -5,26 +5,31 @@ package parser
 import "strconv"
 
 const (
-	_Authn_name_0 = "AllowNoneAllowReadAllowInsert"
-	_Authn_name_1 = "AllowUpdate"
-	_Authn_name_2 = "AllowDelete"
-	_Authn_name_3 = "AllowAll"
+	_Authn_name_0 = "AllowNoneAllowRead"
+	_Authn_name_1 = "AllowReturnAllowInsert"
+	_Authn_name_2 = "AllowUpdate"
+	_Authn_name_3 = "AllowDelete"
+	_Authn_name_4 = "AllowFull"
 )
 
 var (
-	_Authn_index_0 = [...]uint8{0, 9, 18, 29}
+	_Authn_index_0 = [...]uint8{0, 9, 18}
+	_Authn_index_1 = [...]uint8{0, 11, 22}
 )
 
 func (i Authn) String() string {
 	switch {
-	case 0 <= i && i <= 2:
+	case 0 <= i && i <= 1:
 		return _Authn_name_0[_Authn_index_0[i]:_Authn_index_0[i+1]]
-	case i == 4:
-		return _Authn_name_1
+	case 3 <= i && i <= 4:
+		i -= 3
+		return _Authn_name_1[_Authn_index_1[i]:_Authn_index_1[i+1]]
 	case i == 8:
 		return _Authn_name_2
-	case i == 15:
+	case i == 16:
 		return _Authn_name_3
+	case i == 31:
+		return _Authn_name_4
 	default:
 		return "Authn(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
