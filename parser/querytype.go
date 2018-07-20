@@ -92,8 +92,8 @@ type StoreColumnPort struct {
 }
 
 type Input struct {
-	DataType DataType
-	Name     string
+	Type DataType
+	Name string
 }
 
 type Param struct {
@@ -112,7 +112,7 @@ type StoreColumn struct {
 	Serial       bool
 	Nullable     bool
 	Length       int32
-	DataType     DataType
+	Type         DataType
 	Default      interface{}
 	LinkToTable  string
 	LinkToColumn string
@@ -154,7 +154,7 @@ type ColumnSchema struct {
 	UpdateLock   bool // True if column should be compared prior to update, only allow if same.
 	DeleteLock   bool // True if the column should be compared prior to delete, only allow if same.
 	Length       int32
-	DataType     DataType
+	Type         DataType
 	Default      interface{}
 	LinkToTable  string
 	LinkToColumn string
@@ -190,7 +190,8 @@ type StreamItemEndOfSet struct{}
 type StreamItemError struct{ Error error }
 
 type StreamingResultSet interface {
-	Next() StreamItem
+	// returns io.EOF when done.
+	Next() (StreamItem, error)
 }
 
 // Begin Buffer

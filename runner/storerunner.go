@@ -9,6 +9,14 @@ type Param struct {
 	Value interface{}
 }
 
+type Option struct {
+	QueryName string
+
+	Port  string
+	Role  []string
+	Param []Param
+}
+
 type StoreRunner interface {
-	Run(s *parser.Store, iface, role, run string, param []Param) (parser.StreamingResultSet, error)
+	Run(s *parser.Store, opt Option) (parser.StreamingResultSet, error)
 }
