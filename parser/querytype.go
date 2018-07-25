@@ -189,6 +189,14 @@ type StreamItemEndOfResult struct{}
 type StreamItemEndOfSet struct{}
 type StreamItemError struct{ Error error }
 
+func (StreamItemResultSetSchema) StreamState() StreamState { return StreamResultSetSchema }
+func (StreamItemResult) StreamState() StreamState          { return StreamResult }
+func (StreamItemRow) StreamState() StreamState             { return StreamRow }
+func (StreamItemColumn) StreamState() StreamState          { return StreamColumn }
+func (StreamItemEndOfResult) StreamState() StreamState     { return StreamEndOfResult }
+func (StreamItemEndOfSet) StreamState() StreamState        { return StreamEndOfSet }
+func (StreamItemError) StreamState() StreamState           { return StreamError }
+
 type StreamingResultSet interface {
 	// returns io.EOF when done.
 	Next() (StreamItem, error)
@@ -197,7 +205,7 @@ type StreamingResultSet interface {
 // Begin Buffer
 
 type ResultSetBuffer struct {
-	Schema *ResultSetSchema
+	Schema ResultSetSchema
 	Set    []ResultBuffer
 }
 

@@ -1,17 +1,22 @@
 package memrunner
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"testing"
 
+	"github.com/solidcoredata/dbc/internal/elist"
 	"github.com/solidcoredata/dbc/parser"
 	"github.com/solidcoredata/dbc/runner"
 )
 
 func TestSimple(t *testing.T) {
-	ms := &MemoryStore{}
+	ms := &MemoryStore{
+		Version: 1,
+	}
 
-	ms.AddTable(&parser.StoreTable{
+	err := ms.AddTable(&parser.StoreTable{
 		Name:    "Book",
 		Alias:   "b",
 		Display: "Library Books",
@@ -19,6 +24,7 @@ func TestSimple(t *testing.T) {
 		Tag:     []string{"soft-delete"},
 		Column: []*parser.StoreColumn{
 			{Name: "ID", Type: parser.TypeInteger, Key: true, Serial: true},
+			{Name: "Name", Type: parser.TypeString, Display: "Book Name"},
 		},
 		Read: []parser.Param{
 			{
@@ -37,9 +43,32 @@ func TestSimple(t *testing.T) {
 			},
 		},
 	}, [][]interface{}{
-		{1},
-		{2},
+		{1, "Never a Dull Moment"},
+		{2, "To Kill a Bird"},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ms.AddQuery(&parser.StoreQuery{
+		Type: "jsonnet",
+		Query: `
+local t = import("table");
+local f = import("func");
+{
+	local b = t.Book,
+	from: b,
+	select: [b.ID, b.Name],
+	where: [f.like(b.Name, "%bob%")],
+}`,
+		Column: []parser.StoreQueryColumn{
+			{Table: "Book", StoreName: "ID", QueryName: "ID", UIBindName: "", Display: "", ReadOnly: true},
+			{Table: "Book", StoreName: "Name", QueryName: "Name", UIBindName: "Name", Display: "Book Name", ReadOnly: false},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	r := NewMemoryStoreRunner(ms)
 	st := ms.Store()
@@ -56,24 +85,48 @@ func TestSimple(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	set, err := bufferFromStream(stream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = set
+}
+
+func bufferFromStream(stream parser.StreamingResultSet) (*parser.ResultSetBuffer, error) {
+	set := &parser.ResultSetBuffer{}
+
+	var el elist.EList
+	var result *parser.ResultBuffer
 	for {
 		item, err := stream.Next()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			t.Fatal(err)
+			return nil, err
 		}
+
 		switch v := item.(type) {
 		default:
-			t.Fatal("unknown state")
+			return nil, fmt.Errorf("unknown state: %v", v.StreamState())
 		case parser.StreamItemResultSetSchema:
+			set.Schema = v.Schema
+			set.Set = make([]parser.ResultBuffer, len(v.Schema.Set))
 		case parser.StreamItemResult:
+			result = &set.Set[v.SchemaIndex]
+			result.Schema = set.Schema.Set[v.SchemaIndex]
 		case parser.StreamItemRow:
+			// result.Row = append(result.Row, v.Row)
 		case parser.StreamItemColumn:
+			return set, errors.New("column store not implemented")
 		case parser.StreamItemEndOfResult:
+			result = nil
 		case parser.StreamItemEndOfSet:
+			break
 		case parser.StreamItemError:
+			el.Add(v.Error)
 		}
 	}
+	return set, el.ErrNil()
 }
