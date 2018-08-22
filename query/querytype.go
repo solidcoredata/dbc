@@ -1,4 +1,8 @@
-package parser
+package query
+
+import (
+	"context"
+)
 
 // Begin Schema
 
@@ -38,16 +42,62 @@ const (
 	TypeArray               // Array
 )
 
+// TODO(kardianos): Okay, I have a decent model for encoding table schemas
+// and permissions (to an initial reasonable extent). But recording queries
+// and conditions are lacking. This representation should already be parsed.
+// The table schema is already parsed, the queries should be too. Furthermore,
+// all structures should be designed to be easily serializable.
+//
+// Queries need to understand:
+//  * Know what tables and columns are used. (For permissions)
+//  * Know what tables and columns are returned. (For permissions and UI static checking and static UI building)
+//  * Be able to insert additional conditions to statements. (To insert dynamic parameters and authroization checks)
+
 type Store struct {
 	Table []*StoreTable
-	Query []StoreQuery
+	Query []Query
 }
 
-type StoreQuery struct {
-	Type   string // jsonnet, scdql, postgres, mssql
-	Query  string
-	Column []StoreQueryColumn
+type RunParam struct {
+	Name  string
+	Value interface{}
 }
+
+type RunOption struct {
+	Port  string
+	Role  []string
+	Param []RunParam
+}
+
+type ExpList interface {
+	AddCondition(exp Exp)
+}
+
+type Exp struct {
+	// Body contains the actual expression, like:
+	//
+	//    and (a.Foo = b.Foo, a.Deleted = 0)
+	Body string
+}
+
+type Stmt struct {
+	ExpList ExpList
+
+	Read   []*ColumnSchema
+	Return []*ColumnSchema
+	Insert []*ColumnSchema
+	Update []*ColumnSchema
+	Delete []*ResultTableSchema
+}
+
+type Query struct {
+	Stmt []Stmt
+}
+
+type StoreRunner interface {
+	Run(ctx context.Context, q Query, opt RunOption) (StreamingResultSet, error)
+}
+
 type StoreQueryColumn struct {
 	Table      string
 	StoreName  string // Name of the column in the database.
@@ -134,10 +184,9 @@ type ResultSchema struct {
 }
 
 type ResultTableSchema struct {
-	Name           string
-	Allow          Authn // Client should be advised server will enforce these restrictions.
-	IsArity        bool
-	EncodeByColumn bool
+	Name    string
+	Alias   string // Table alias when used in a query.
+	IsArity bool   // Table is the query arity.
 }
 type ColumnSchema struct {
 	Table      *ResultTableSchema
@@ -145,7 +194,7 @@ type ColumnSchema struct {
 	QueryName  string // Name of the column in the query.
 	UIBindName string // Name of the UI field to bind to.
 	Display    string // Suggested default name to display for the column.
-	ReadOnly   bool   // Column may not be updated. Often the case for computed columns.
+	Allow      Authn  // Client should be advised server will enforce these restrictions.
 
 	// Properties used for normal tables.
 	Key          bool
@@ -169,7 +218,6 @@ const (
 	StreamResultSetSchema             // Schema of the expected result.
 	StreamResult                      // Value is the result set schema index.
 	StreamRow                         // Value is an array of values forming a row of data.
-	StreamColumn                      // Value is an array of values forming a column of data.
 	StreamEndOfResult                 // No value.
 	StreamEndOfSet                    // No value.
 	StreamError                       // Value is an error, signalling termination of the stream.
@@ -184,7 +232,6 @@ type StreamField []byte
 type StreamItemResultSetSchema struct{ Schema ResultSetSchema }
 type StreamItemResult struct{ SchemaIndex int64 }
 type StreamItemRow struct{ Row []StreamField }
-type StreamItemColumn struct{ Column []StreamField }
 type StreamItemEndOfResult struct{}
 type StreamItemEndOfSet struct{}
 type StreamItemError struct{ Error error }
@@ -192,7 +239,6 @@ type StreamItemError struct{ Error error }
 func (StreamItemResultSetSchema) StreamState() StreamState { return StreamResultSetSchema }
 func (StreamItemResult) StreamState() StreamState          { return StreamResult }
 func (StreamItemRow) StreamState() StreamState             { return StreamRow }
-func (StreamItemColumn) StreamState() StreamState          { return StreamColumn }
 func (StreamItemEndOfResult) StreamState() StreamState     { return StreamEndOfResult }
 func (StreamItemEndOfSet) StreamState() StreamState        { return StreamEndOfSet }
 func (StreamItemError) StreamState() StreamState           { return StreamError }

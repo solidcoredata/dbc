@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"github.com/solidcoredata/dbc/parser"
+	"github.com/solidcoredata/dbc/query"
 )
 
 type Param struct {
@@ -18,5 +18,5 @@ type Option struct {
 }
 
 type StoreRunner interface {
-	Run(s *parser.Store, opt Option) (parser.StreamingResultSet, error)
+	Run(s *query.Store, opt Option) (query.StreamingResultSet, error)
 }

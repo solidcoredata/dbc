@@ -5,6 +5,19 @@
  * Authorize data use for all queries.
  * Custom queries, ORM, CRUD.
 
+## Developing
+
+ 1. Declare schema, use for alters. Working MVP.
+ 2. Improve alter tooling, ensure alters are step-wise compatible.
+ 3. Create a separate product that reads the declared schema and connection string
+    and provides a record based query system, results return a row delta.
+	Ignore permissions for the most part. Working MVP.
+ 4. Expand the above service to allow custom queries, declare required
+    meta-information alogn with the database specific query text.
+	Limited parameter expansion for now.
+ 5. Explore the topic of actually parsing a query to automatically extract and
+    manipulate the query.
+
 ## Motivation
 
 Databases are often initially designed, then slowly change over time as business
@@ -45,24 +58,47 @@ database/
 
 package ar
 
-create account table {
-	ID int64 serial key
+import (
+	coredata.biz/app1/role	
+)
+
+// account holds a name and account number for use in the general ledger.
+table account {
+	id int64 serial key
 	name text
 	number int64 null default null
 
 	xname index [cluster] [unique] [concurrent] (Name) include (number) [using <name> [string params]] [where <filter>]
 }
 
+param (a account) name_number text {
+	or (
+		name_number = a.name
+		and (
+			name_number:?int64
+			name_number::int64 = a.number
+		)
+	)
+}
+
+table ledger {
+	id int64 serial key
+	name text
+	balance decimal default 0
+}
+
+query ckone {
+	
+}
 
 func doit(part float64) table {
-	create temp.Foo table {
+	var foo table {
 		ID int64 serial key
 		name text
 		number int64 null default null
 
 		xname index [cluster] [unique] [concurrent] (Name) include (number) [using <name> [string params]] [where <filter>]
 	}
-	drop temp.Foo
 
 	type ti interface {
 		Name text

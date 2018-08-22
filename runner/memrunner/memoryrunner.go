@@ -3,7 +3,7 @@ package memrunner
 import (
 	"io"
 
-	"github.com/solidcoredata/dbc/parser"
+	"github.com/solidcoredata/dbc/query"
 	"github.com/solidcoredata/dbc/runner"
 )
 
@@ -19,7 +19,7 @@ func NewMemoryStoreRunner(st *MemoryStore) *MemoryStoreRunner {
 	}
 }
 
-func (r *MemoryStoreRunner) Run(s *parser.Store, opt runner.Option) (parser.StreamingResultSet, error) {
+func (r *MemoryStoreRunner) Run(s *query.Store, opt runner.Option) (query.StreamingResultSet, error) {
 	return StreamingResultSet{}, nil
 }
 
@@ -27,20 +27,20 @@ type MemoryStore struct {
 	Version int64
 }
 
-func (ms *MemoryStore) Store() *parser.Store {
+func (ms *MemoryStore) Store() *query.Store {
 	return nil
 }
 
-func (ms *MemoryStore) AddTable(t *parser.StoreTable, data [][]interface{}) error {
+func (ms *MemoryStore) AddTable(t *query.StoreTable, data [][]interface{}) error {
 	return nil
 }
 
-func (ms *MemoryStore) AddQuery(t *parser.StoreQuery) error {
+func (ms *MemoryStore) AddQuery(q *query.Query) error {
 	return nil
 }
 
 type StreamingResultSet struct{}
 
-func (StreamingResultSet) Next() (parser.StreamItem, error) {
+func (StreamingResultSet) Next() (query.StreamItem, error) {
 	return nil, io.EOF
 }
