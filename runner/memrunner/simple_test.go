@@ -57,10 +57,75 @@ local t = import("table");
 local f = import("func");
 {
 	local b = t.Book,
-	from: b,
+	from: join([b, t.Account, f.join(t.AccountBook, f.eq(t.Account.ID, t.AccountBook.Book))],
 	select: [b.ID, b.Name],
 	where: [f.like(b.Name, "%bob%")],
-}`,
+}
+
+[
+	join(b, t.Account, and
+]
+
+join   book b
+join   account a and b.Account = a.ID
+and    b.Deleted = false
+and    b.Name = 'Robert'
+and    a.ID = in.account
+select b.ID, b.Name
+select b.store
+insert temp.bns (id bigint, name text, store text)
+;
+
+join temp.bns t
+select t.*
+;
+
+
+join (
+	book b,
+	account a and b.Account = a.ID,
+)
+and (
+	b.Deleted = false,
+	b.Name = 'Robert',
+)
+select (
+	b.ID,
+	b.Name,
+	b.store
+);
+
+join (
+	book b,
+	account a and (
+		b.Account = a.ID,
+	),
+)
+and (
+	b.Deleted = false,
+	b.Name = 'Robert',
+)
+select (
+	b.ID,
+	b.Name,
+	b.store,
+);
+
+q([
+	local b = t.book,
+	local a = t.account,
+	local tmp = t.temp("bns"),
+	join(b),
+	join(a, eq(a.book, b.id)),
+	eq(b.Deleted, false),
+	eq(b.Name, 'Robert'),
+	select(b.id, b.name),
+	select(b.store),
+	insert(tmp),
+]) + q([
+
+])
+`,
 		Column: []parser.StoreQueryColumn{
 			{Table: "Book", StoreName: "ID", QueryName: "ID", UIBindName: "", Display: "", ReadOnly: true},
 			{Table: "Book", StoreName: "Name", QueryName: "Name", UIBindName: "Name", Display: "Book Name", ReadOnly: false},
