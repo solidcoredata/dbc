@@ -62,20 +62,73 @@ import (
 	coredata.biz/app1/role	
 )
 
+{type: "varblock", options: [
+	{type: "keyword", id: "table"},
+	{type: "identifier"},
+	{type: "varblock", options: [
+		{type: "property},
+		{type: "line", parts: [
+			{type: "identifier"},
+			{type: "identifier"},
+			{type: "varblock", options: [
+				{type: "property"},
+			]},
+		},
+	]},
+]}
+
 // account holds a name and account number for use in the general ledger.
-table account {
+account table {
+	alias: a
+	display: Personal Account
+	
 	id int64 serial key
 	name text
-	number int64 null default null
+	number int64 {null:, default: null}
+	number int64 {
+		null:
+		concurrent:
+		unique:
+		default: null
+	}
 
 	xname index [cluster] [unique] [concurrent] (Name) include (number) [using <name> [string params]] [where <filter>]
+	
+	name_number query {
+		type: text
+		or (
+			name_number = a.name
+			and (
+				name_number:?int64 = true
+				name_number::int64 = a.number
+			)
+			exists (
+				from ledger l
+				from account_ledger al and (l.id = al.ledger)
+				and (
+					al.account = a.id
+					name_number = l.name
+				)
+			)
+			exists (
+				from (
+					ledger l
+					account_ledger al and (l.id = al.ledger)
+				)
+				and (
+					al.account = a.id
+					name_number = l.name
+				)
+			)
+		)
+	}
 }
 
 param (a account) name_number text {
 	or (
 		name_number = a.name
 		and (
-			name_number:?int64
+			name_number:?int64 = true
 			name_number::int64 = a.number
 		)
 	)
@@ -84,12 +137,34 @@ param (a account) name_number text {
 table ledger {
 	id int64 serial key
 	name text
-	balance decimal default 0
+	balance decimal {
+		default: 0
+	}
 }
 
-query ckone {
-	
+table account_ledger {
+	id int64 serial key {
+		comment: used for primary key
+		tag: xyz
+		tag: abc
+		display: ID of Join
+	}
+	account *account.id
+	ledger *ledger.id
 }
+
+ckone query {
+	param: aid *account.id
+	from account a
+	from account_ledger al and(a.id = al.account)
+	from ledger l and(l.id = al.ledger)
+	and a.id = aid
+	select a.name "Account Name", l.name "Ledger", l.balance bal
+}
+
+```
+
+```
 
 func doit(part float64) table {
 	var foo table {
