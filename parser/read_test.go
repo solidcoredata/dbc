@@ -34,20 +34,5 @@ a multiline comment
 		if err != nil {
 			t.Fatal(err)
 		}
-		/*
-			err := l.run(func(st lexState, value string) {
-				switch st {
-				default:
-					t.Logf("%s: %q", st, value)
-				case lexOutside:
-					return
-				case lexNewLine:
-					t.Log(st)
-				}
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-		*/
 	}
 }

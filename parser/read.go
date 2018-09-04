@@ -274,10 +274,10 @@ func stSymbol(ctx context.Context, l *lexer) stateFn {
 			return stWhitespace
 		case l.isSymbol(r):
 			l.nextRune()
-		case l.value() == "--":
+		case l.value() == lineComment:
 			l.nextRune()
 			return stLineComment
-		case l.value() == "/*":
+		case l.value() == leftComment:
 			l.nextRune()
 			return stMultiComment
 		}
@@ -307,7 +307,7 @@ func stMultiComment(ctx context.Context, l *lexer) stateFn {
 
 		end := l.Source[l.At-2 : l.At]
 
-		if end == "*/" {
+		if end == rightComment {
 			l.send(comment{v: l.valueSync(), Multiline: true})
 			return stWhitespace
 		}
