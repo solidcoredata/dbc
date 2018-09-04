@@ -1,2 +1,1 @@
-module "github.com/solidcoredata/dbc"
-
+module github.com/solidcoredata/dbc
