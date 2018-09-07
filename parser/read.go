@@ -12,62 +12,57 @@ import (
 	"unicode/utf8"
 )
 
-// A Position describes the position between two bytes of input.
-type Position struct {
-	Line     int // line in input (starting at 1)
-	LineRune int // rune in line (starting at 1)
-	Byte     int // byte in input (starting at 0)
-}
+//go:generate stringer -type TokenType -trimprefix Token
 
-// An Expr represents an input element.
-type Expr interface {
-	// Span returns the start and end position of the expression,
-	// excluding leading or trailing comments.
-	Span() (start, end Position)
-
-	// Comment returns the comments attached to the expression.
-	Comment() []*Comment
-}
-
-type CommentPlacement uint8
+type TokenType int
 
 const (
-	Above CommentPlacement = iota
-	Below
-	Left
-	Right
+	TokenInvalid TokenType = iota
+	TokenNewline
+	TokenWS
+	TokenSymbol
+	TokenString
+	TokenStringWithEscape
+	TokenNumber
+	TokenIdentifier
+	TokenIdentifierQuoted
+	TokenLineComment
+	TokenMultiComment
 )
 
-type Comment struct {
-	Placement CommentPlacement
-	Multiline bool // Comment is a /* */ multiline comment.
-	Text      string
-	Next      *Comment
+// Position of a byte within a file.
+type Position struct {
+	Line     int // Line in input, starts at 1.
+	LineRune int // Rune in line, starts at 1.
+	Byte     int // Byte in input, starts at 0.
 }
 
-// A FileSyntax represents an entire go.mod file.
-type FileSyntax struct {
-	Name string
-	Stmt []Expr
-}
-
-func (x *FileSyntax) Span() (start, end Position) {
-	if len(x.Stmt) == 0 {
-		return
+func newPos() Position {
+	return Position{
+		Line:     1,
+		LineRune: 1,
 	}
-	start, _ = x.Stmt[0].Span()
-	_, end = x.Stmt[len(x.Stmt)-1].Span()
-	return start, end
+}
+
+type Token struct {
+	Type    TokenType
+	Start   Position
+	End     Position
+	Value   string
+	Message string
 }
 
 func funcName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-func run(ctx context.Context, src string, f func(Token)) error {
+func Lex(ctx context.Context, src string, f func(Token)) error {
 	l := &lexer{
-		Source: src,
-		Next:   f,
+		source: src,
+		next:   f,
+
+		start: newPos(),
+		end:   newPos(),
 	}
 	state := stWhitespace
 	for state != nil && ctx.Err() == nil {
@@ -79,59 +74,16 @@ func run(ctx context.Context, src string, f func(Token)) error {
 	return nil
 }
 
-type invalid struct {
-	v
-	Message string
-}
-type newline struct {
-	v
-}
-type ws struct {
-	v
-}
-
-type sym struct {
-	v
-}
-
-type str struct {
-	v
-	Raw       bool
-	HasEscape bool // True if string has an escape sequence.
-}
-
-type number struct {
-	v
-}
-
-type identifier struct {
-	v
-	Quoted bool
-}
-
-type comment struct {
-	v
-	Multiline bool
-}
-
-type Token interface {
-	Value() string
-}
-
-type v string
-
-func (v v) Value() string {
-	return string(v)
-}
-
 type lexer struct {
-	Source string
-	At     int
-	Start  int
+	source string
+	next   func(Token)
 
-	Next func(Token)
+	start Position
+	end   Position
 
-	runeSize int
+	runeSize     int
+	currentRune  rune
+	previousRune rune
 }
 
 type stateFn func(context.Context, *lexer) stateFn
@@ -142,34 +94,53 @@ const (
 	rightComment = "*/"
 )
 
-func (l *lexer) send(t Token) {
-	if l.Next == nil {
-		return
-	}
-	if len(t.Value()) == 0 {
-		return
-	}
-	l.Next(t)
+func (l *lexer) send(t TokenType) {
+	l.sendMessage(t, "")
 }
 
-func (l *lexer) runeAt() (r rune) {
-	r, l.runeSize = utf8.DecodeRuneInString(l.Source[l.At:])
-	return
+func (l *lexer) sendMessage(t TokenType, msg string) {
+	if l.next == nil {
+		return
+	}
+	start, end := l.start, l.end
+	v := l.valueSync()
+	if len(v) == 0 {
+		return
+	}
+	e := Token{
+		Type:    t,
+		Value:   v,
+		Message: msg,
+		Start:   start,
+		End:     end,
+	}
+	l.next(e)
+}
+
+func (l *lexer) runeAt() rune {
+	l.previousRune = l.currentRune
+	l.currentRune, l.runeSize = utf8.DecodeRuneInString(l.source[l.end.Byte:])
+	return l.currentRune
 }
 
 func (l *lexer) nextRune() {
-	l.At += l.runeSize
-	return
+	l.end.Byte += l.runeSize
+	if l.currentRune == '\n' {
+		l.end.Line++
+		l.end.LineRune = 1
+	} else {
+		l.end.LineRune++
+	}
 }
 
 func (l *lexer) value() string {
-	return l.Source[l.Start:l.At]
+	return l.source[l.start.Byte:l.end.Byte]
 }
 
-func (l *lexer) valueSync() v {
-	s := l.Source[l.Start:l.At]
-	l.Start = l.At
-	return v(s)
+func (l *lexer) valueSync() string {
+	s := l.source[l.start.Byte:l.end.Byte]
+	l.start = l.end
+	return s
 }
 
 func (*lexer) isIdentiferStart(r rune) bool {
@@ -232,7 +203,7 @@ func stIdentifier(ctx context.Context, l *lexer) stateFn {
 
 		switch {
 		default:
-			l.send(identifier{v: l.valueSync()})
+			l.send(TokenIdentifier)
 			return stWhitespace
 		case l.isIdentifer(r):
 			l.nextRune()
@@ -254,10 +225,10 @@ func stQuoteIdentifier(ctx context.Context, l *lexer) stateFn {
 			l.nextRune()
 		case '"':
 			l.nextRune()
-			l.send(identifier{v: l.valueSync(), Quoted: true})
+			l.send(TokenIdentifierQuoted)
 			return stWhitespace
 		case '\n', '\r':
-			l.send(invalid{v: l.valueSync(), Message: "quoted identifier not closed before newline"})
+			l.sendMessage(TokenInvalid, "quoted identifier not closed before newline")
 			return stWhitespace
 		}
 	}
@@ -270,7 +241,7 @@ func stSymbol(ctx context.Context, l *lexer) stateFn {
 
 		switch {
 		default:
-			l.send(sym{v: l.valueSync()})
+			l.send(TokenSymbol)
 			return stWhitespace
 		case l.isSymbol(r):
 			l.nextRune()
@@ -293,7 +264,7 @@ func stLineComment(ctx context.Context, l *lexer) stateFn {
 		default:
 			l.nextRune()
 		case '\n', '\r':
-			l.send(comment{v: l.valueSync()})
+			l.send(TokenLineComment)
 			return stWhitespace
 		}
 	}
@@ -305,10 +276,10 @@ func stMultiComment(ctx context.Context, l *lexer) stateFn {
 		l.runeAt()
 		l.nextRune()
 
-		end := l.Source[l.At-2 : l.At]
+		end := l.source[l.end.Byte-2 : l.end.Byte]
 
 		if end == rightComment {
-			l.send(comment{v: l.valueSync(), Multiline: true})
+			l.send(TokenMultiComment)
 			return stWhitespace
 		}
 	}
@@ -321,7 +292,7 @@ func stNumber(ctx context.Context, l *lexer) stateFn {
 
 		switch {
 		default:
-			l.send(number{v: l.valueSync()})
+			l.send(TokenNumber)
 			return stWhitespace
 		case l.isNumber(r):
 			l.nextRune()
@@ -349,7 +320,11 @@ func stString(ctx context.Context, l *lexer) stateFn {
 				escapePresent = true
 				continue
 			}
-			l.send(str{v: l.valueSync(), HasEscape: escapePresent})
+			if escapePresent {
+				l.send(TokenStringWithEscape)
+			} else {
+				l.send(TokenString)
+			}
 			return stWhitespace
 		}
 	}
@@ -357,7 +332,7 @@ func stString(ctx context.Context, l *lexer) stateFn {
 }
 
 func stWhitespace(ctx context.Context, l *lexer) stateFn {
-	if l.At >= len(l.Source) {
+	if l.end.Byte >= len(l.source) {
 		return nil
 	}
 
@@ -366,32 +341,32 @@ func stWhitespace(ctx context.Context, l *lexer) stateFn {
 
 		switch {
 		default:
-			l.send(ws{v: l.valueSync()})
+			l.send(TokenWS)
 			l.nextRune()
-			l.send(invalid{v: l.valueSync(), Message: "unknown token"})
+			l.sendMessage(TokenInvalid, "unknown token")
 			l.nextRune()
 			return nil
 		case r == utf8.RuneError:
 			return nil
 		case r == '\n' || r == '\r':
-			l.send(ws{v: l.valueSync()})
+			l.send(TokenWS)
 			l.nextRune()
-			l.send(newline{v: l.valueSync()})
+			l.send(TokenNewline)
 		case l.isWhiteSpace(r):
 			l.nextRune()
 		case l.isQuoteIdentiferStart(r):
 			return stQuoteIdentifier
 		case l.isIdentiferStart(r):
-			l.send(ws{v: l.valueSync()})
+			l.send(TokenWS)
 			return stIdentifier
 		case l.isSymbol(r):
-			l.send(ws{v: l.valueSync()})
+			l.send(TokenWS)
 			return stSymbol
 		case l.isNumberStart(r):
-			l.send(ws{v: l.valueSync()})
+			l.send(TokenWS)
 			return stNumber
 		case r == '\'':
-			l.send(ws{v: l.valueSync()})
+			l.send(TokenWS)
 			return stString
 		}
 	}

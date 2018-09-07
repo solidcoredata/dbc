@@ -1,3 +1,5 @@
+// Copyright 2018 solidcoredata authors.
+
 package parser
 
 import (
@@ -27,8 +29,8 @@ a multiline comment
 
 	for _, item := range list {
 		ctx, cancel := context.WithTimeout(bg, time.Second*1)
-		err := run(ctx, item.src, func(token Token) {
-			t.Logf("%#v", token)
+		err := Lex(ctx, item.src, func(e Token) {
+			t.Logf("%v", e)
 		})
 		cancel()
 		if err != nil {
