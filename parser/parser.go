@@ -1,3 +1,5 @@
+// Copyright 2018 solidcoredata authors.
+
 package parser
 
 // Parser reads in source files and builds an AST tree from it. It may also verify

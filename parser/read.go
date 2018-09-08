@@ -176,7 +176,7 @@ func (*lexer) isSymbol(r rune) bool {
 	switch r {
 	default:
 		return false
-	case '{', '}', '-', '/', '*', '(', ')', '+', '%', '<', '>', '=':
+	case '{', '}', '-', '/', '*', '(', ')', '+', '%', '<', '>', '=', '.', ',', ';':
 		return true
 	}
 }
