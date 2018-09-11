@@ -56,10 +56,10 @@ func funcName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-func Lex(ctx context.Context, src string, f func(Token)) error {
+func Lex1(ctx context.Context, src string, t chan Token) error {
 	l := &lexer{
 		source: src,
-		next:   f,
+		next:   t,
 
 		start: newPos(),
 		end:   newPos(),
@@ -76,7 +76,7 @@ func Lex(ctx context.Context, src string, f func(Token)) error {
 
 type lexer struct {
 	source string
-	next   func(Token)
+	next   chan Token
 
 	start Position
 	end   Position
@@ -107,14 +107,13 @@ func (l *lexer) sendMessage(t TokenType, msg string) {
 	if len(v) == 0 {
 		return
 	}
-	e := Token{
+	l.next <- Token{
 		Type:    t,
 		Value:   v,
 		Message: msg,
 		Start:   start,
 		End:     end,
 	}
-	l.next(e)
 }
 
 func (l *lexer) runeAt() rune {

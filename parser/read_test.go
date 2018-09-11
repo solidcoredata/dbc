@@ -10,9 +10,11 @@ import (
 
 func TestLex(t *testing.T) {
 	list := []struct {
-		src string
+		name string
+		src  string
 	}{
 		{
+			name: "module",
 			src: `module foo/fee/v1
 
 require (
@@ -21,6 +23,7 @@ require (
 `,
 		},
 		{
+			name: "table",
 			src: `package foo
 
 table "account"  {
@@ -32,6 +35,7 @@ a multiline comment
 `,
 		},
 		{
+			name: "query",
 			src: `package foo
 
 query "dancing" {
@@ -52,13 +56,29 @@ query "dancing" {
 	bg := context.Background()
 
 	for _, item := range list {
-		ctx, cancel := context.WithTimeout(bg, time.Second*1)
-		err := Lex(ctx, item.src, func(e Token) {
-			t.Logf("%v", e)
+		t.Run(item.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(bg, time.Second*1)
+			tc := make(chan Token, 100)
+			done := make(chan bool)
+			go func() {
+				defer close(done)
+				for {
+					select {
+					case tok, ok := <-tc:
+						if !ok {
+							return
+						}
+						t.Logf("%v", tok)
+					}
+				}
+			}()
+			err := Lex1(ctx, item.src, tc)
+			close(tc)
+			cancel()
+			if err != nil {
+				t.Fatal(err)
+			}
+			<-done
 		})
-		cancel()
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
 }
