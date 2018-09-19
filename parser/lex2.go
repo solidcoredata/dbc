@@ -21,7 +21,47 @@ func (e ParseError) Error() string {
 type File struct {
 	Name   string
 	Errors []ParseError
+
+	DeclareOrder []string
+
+	Table []Table
+	Query []Query
 }
+
+type CommentPosition int
+
+const (
+	CommentAbove CommentPosition = iota
+	CommentRight
+	CommentBelow
+	CommentLeft
+)
+
+type Comment struct {
+	Pos       CommentPosition
+	MultiLine bool
+	Text      string
+}
+
+type Node interface {
+	Pos() (start Position, end Position)
+	Comments() []Comment
+}
+
+type Table struct {
+	Name string
+
+	Column []TableColumn
+}
+type TableColumn struct {
+	Name string
+	Type string
+}
+type TableIndex struct {
+	Name string
+}
+
+type Query struct{}
 
 func (f *File) err(tok Token, msg string) {
 	f.Errors = append(f.Errors, ParseError{
@@ -30,6 +70,10 @@ func (f *File) err(tok Token, msg string) {
 		End:      tok.End,
 		Message:  msg,
 	})
+}
+
+type Package struct {
+	Name string
 }
 
 func Lex2(ctx context.Context, src string, f *File) error {
@@ -45,6 +89,10 @@ func Lex2(ctx context.Context, src string, f *File) error {
 		)
 		var st lstate1
 		_ = st
+
+		type lexRoute struct {
+		}
+
 		for {
 			tok, ok := <-tc
 			if !ok {

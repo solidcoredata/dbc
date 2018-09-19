@@ -1,9 +1,11 @@
 # Solid Core Data: DB Compiler
 
  * Statically verify database schemas, schema changes, queries.
+ * Standard method for declaring and executing schema alters.
  * Write queries that can run in many systems.
  * Authorize data use for all queries.
- * Custom queries, ORM, CRUD.
+ * Setup a standard package system for queries, views, conditions (expressions) and schemas.
+ * Make it easy to write custom queries and request ORM style records.
 
 ## Developing
 
@@ -15,7 +17,13 @@
  4. Expand the above service to allow custom queries, declare required
     meta-information alogn with the database specific query text.
 	Limited parameter expansion for now.
- 5. Explore the topic of actually parsing a query to automatically extract and
+ 5. Allow manupulating the schema tables based on Tags and Named with query
+    expressions.
+ 6. Allow creating unit tests of queries, views, and conditions. On each expression,
+    extract the schema that is used, then substitute test vectors in for each
+	referenced table. This allows test vectors to be narrower (only referenced
+	columns need to be populated).
+ 7. Explore the topic of actually parsing a query to automatically extract and
     manipulate the query.
 
 ## Motivation
@@ -30,10 +38,14 @@ By snapshotting the database state over time and storing them side-by-side,
 database migrations are simple to declare and do so without being redundant
 keeping a final schema up-to-date.
 
+Make it easy to unit test SQL expressions (queries, views, and conditions) by
+reducing the expression to referenced columns and allow substituting tables
+with test vectors.
+
 CRUD queries and ORM functionality come almost for free once the database
 schema is known up front.
 
-Because all queries are run through a single translation pipeline, developers
+All queries are run through a single translation pipeline so developers
 can declare that certain tables must restrict access to users with sufficent
 authorization. It also allows CRUD queries to dynamically append search criteria
 for fully featured search-list-detail screens.
@@ -301,6 +313,13 @@ migration instruction file, to produce an alter definitions.
 The developer can package the schema, schema migration, and queries and hand them
 to the operations team. If the developer is the "operations team", they can
 deploy it themselves or package it along with their application.
+
+## Query Testing
+
+A given query / view / condition can be analysized for the tables and columns it
+uses. An implicit schema interface can be derived for testing. Then smaller
+data vectors can be used for unit tests, and isolating the test data from other
+un-related schema changes.
 
 ## Implementation
 

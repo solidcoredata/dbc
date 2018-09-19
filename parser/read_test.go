@@ -26,7 +26,7 @@ require (
 			name: "table",
 			src: `package foo
 
-table "account"  {
+define "account" table {
 	id int64 serial -- This is a comment.
 	name text default 'Hello World''s' /* This is
 a multiline comment
@@ -38,7 +38,7 @@ a multiline comment
 			name: "query",
 			src: `package foo
 
-query "dancing" {
+define "dancing" query {
 	join   book b
 	join   account a and b.Account = a.ID
 	and    b.Deleted = false
